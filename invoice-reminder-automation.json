@@ -1,0 +1,352 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-272, 224],
+      "id": "a5b8c24a-bdbe-4d51-a015-75b5dc6f0a80",
+      "name": "Daily Invoice Checker"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "{{DOCUMENTID}}",
+          "mode": "list",
+          "cachedResultName": "Invoices",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "{{SHEETNAME}}",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status",
+              "lookupValue": "UNPAID"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [-64, 224],
+      "id": "adb85218-5f11-4e40-b5d3-f362b8e1c615",
+      "name": "Fetch Unpaid Invoices",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "{{GOOGLESHEETSOAUTH2API_ID}}",
+          "name": "{{GOOGLESHEETSOAUTH2API_NAME}}"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const dueDate = new Date($json[\"Due Date\"]);\nconst today = new Date($now);\n\nconst diffTime = today - dueDate;\n\nconst overdueDays = Math.floor(\n  diffTime / (1000 * 60 * 60 * 24)\n);\n\n$json.overdueDays = overdueDays;\n\nreturn {\n  json: $json\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [192, 224],
+      "id": "f8469cfc-2651-41ed-90a9-f47cfbe12bf7",
+      "name": "Calculate Overdue Days"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.overdueDays}}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "506a88e6-cb90-48db-95b6-3c77381c2755"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DAY3"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b4ac4c0e-25bc-4944-8862-d9288bc3df3e",
+                    "leftValue": "={{$json.overdueDays}}",
+                    "rightValue": 7,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DAY7"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "deedfac9-15f0-4324-afee-e0a653ef485d",
+                    "leftValue": "={{$json.overdueDays}}",
+                    "rightValue": 14,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DAY14"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [432, 208],
+      "id": "9e59e272-61e9-4b9f-a0fd-b6769053c97b",
+      "name": "Route Reminder Stage"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d7b2389-ad44-4a69-b724-e3d3b92497ed",
+              "name": "stage",
+              "value": "={{ $json.overdueDays == 3 ? \"DAY3\" : $json.overdueDays == 7 ? \"DAY7\" : \"DAY14\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f2afb886-89d2-4dbe-964c-436a7bdb6f25",
+              "name": "subject",
+              "value": "={{ $json.overdueDays == 3\n? \"Reminder: Invoice \" + $json[\"Invoice ID\"]\n: $json.overdueDays == 7\n? \"Urgent: Invoice \" + $json[\"Invoice ID\"]\n: \"Final Notice: Invoice \" + $json[\"Invoice ID\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "e1d21a8b-f1b4-4ade-b6c0-3f3715182940",
+              "name": "message",
+              "value": "={{ $json.overdueDays == 3\n? \"Dear \" + $json[\"Client Name\"] + \",<br><br>This is a friendly reminder that Invoice <b>\" + $json[\"Invoice ID\"] + \"</b> amounting to <b>₹\" + $json[\"Amount\"] + \"</b> was due on \" + $json[\"Due Date\"] + \" and remains unpaid.<br><br>We kindly request you to process the payment at your earliest convenience.<br><br>Thank you for your business.<br><br>Regards,<br>Finance Team\"\n\n: $json.overdueDays == 7\n\n? \"Dear \" + $json[\"Client Name\"] + \",<br><br>Our records indicate that Invoice <b>\" + $json[\"Invoice ID\"] + \"</b> for <b>₹\" + $json[\"Amount\"] + \"</b> remains outstanding beyond the due date.<br><br>Please arrange payment as soon as possible to avoid delays in future services.<br><br>Regards,<br>Finance Team\"\n\n: \"Dear \" + $json[\"Client Name\"] + \",<br><br>This is a final reminder regarding overdue Invoice <b>\" + $json[\"Invoice ID\"] + \"</b> amounting to <b>₹\" + $json[\"Amount\"] + \"</b>.<br><br>The invoice has remained unpaid for 14+ days. Kindly treat this as urgent. Further follow-up may be required if payment is not received.<br><br>Regards,<br>Finance Team\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [816, 224],
+      "id": "463aafd3-dca5-40e7-b0d5-469344c2bcc8",
+      "name": "Set Reminder Content"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json[\"Client Email\"]}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.message}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1072, 224],
+      "id": "871937a5-c5d7-411b-a82c-71dab898e8b1",
+      "name": "Send Reminder Email",
+      "webhookId": "{{WEBHOOK_ID_1}}",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{GMAILOAUTH2_ID}}",
+          "name": "{{GMAILOAUTH2_NAME}}"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "{{DOCUMENTID}}",
+          "mode": "list",
+          "cachedResultName": "Invoices",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "{{SHEETNAME}}",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Reminder Stage": "={{$node[\"Set Reminder Content\"].json.stage}}",
+            "Invoice ID": "={{$node[\"Set Reminder Content\"].json[\"Invoice ID\"]}}",
+            "Last Reminder Sent": "={{$now}}"
+          },
+          "matchingColumns": ["Invoice ID"],
+          "schema": [
+            {"id": "Invoice ID", "displayName": "Invoice ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "Client Name", "displayName": "Client Name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": true},
+            {"id": "Client Email", "displayName": "Client Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": true},
+            {"id": "Amount", "displayName": "Amount", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": true},
+            {"id": "Due Date", "displayName": "Due Date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": true},
+            {"id": "Status", "displayName": "Status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": true},
+            {"id": "Reminder Stage", "displayName": "Reminder Stage", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Manual Follow-up", "displayName": "Manual Follow-up", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "Last Reminder Sent", "displayName": "Last Reminder Sent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true, "removed": true}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1280, 224],
+      "id": "7bda4807-8f23-49aa-a9aa-096c88da1ed6",
+      "name": "Update Reminder Stage",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "{{GOOGLESHEETSOAUTH2API_ID}}",
+          "name": "{{GOOGLESHEETSOAUTH2API_NAME}}"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "{{DOCUMENTID}}",
+          "mode": "list",
+          "cachedResultName": "Invoices",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "{{SHEETNAME}}",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Invoice ID": "={{$json[\"Invoice ID\"]}}",
+            "Manual Follow-up": "={{$json.overdueDays >= 14 ? \"YES\" : \"NO\"}}",
+            "Last Reminder Sent": "={{$now}}"
+          },
+          "matchingColumns": ["Invoice ID"],
+          "schema": [
+            {"id": "Invoice ID", "displayName": "Invoice ID", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false},
+            {"id": "Client Name", "displayName": "Client Name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Client Email", "displayName": "Client Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Amount", "displayName": "Amount", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Due Date", "displayName": "Due Date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Status", "displayName": "Status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Reminder Stage", "displayName": "Reminder Stage", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Manual Follow-up", "displayName": "Manual Follow-up", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Last Reminder Sent", "displayName": "Last Reminder Sent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "row_number", "displayName": "row_number", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "readOnly": true, "removed": true}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1488, 224],
+      "id": "5c747650-9ebd-4e37-8227-13bff5e05bd6",
+      "name": "Flag Manual Follow-up",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "{{GOOGLESHEETSOAUTH2API_ID}}",
+          "name": "{{GOOGLESHEETSOAUTH2API_NAME}}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily Invoice Checker": {
+      "main": [[{"node": "Fetch Unpaid Invoices", "type": "main", "index": 0}]]
+    },
+    "Fetch Unpaid Invoices": {
+      "main": [[{"node": "Calculate Overdue Days", "type": "main", "index": 0}]]
+    },
+    "Calculate Overdue Days": {
+      "main": [[{"node": "Route Reminder Stage", "type": "main", "index": 0}]]
+    },
+    "Route Reminder Stage": {
+      "main": [
+        [{"node": "Set Reminder Content", "type": "main", "index": 0}],
+        [{"node": "Set Reminder Content", "type": "main", "index": 0}],
+        [{"node": "Set Reminder Content", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Reminder Content": {
+      "main": [[{"node": "Send Reminder Email", "type": "main", "index": 0}]]
+    },
+    "Send Reminder Email": {
+      "main": [[{"node": "Update Reminder Stage", "type": "main", "index": 0}]]
+    },
+    "Update Reminder Stage": {
+      "main": [[{"node": "Flag Manual Follow-up", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{N8N_INSTANCE_ID}}"
+  }
+}
