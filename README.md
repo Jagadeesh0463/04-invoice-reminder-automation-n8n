@@ -1,4 +1,3 @@
-
 # 📄 Invoice Reminder & Escalation Automation
 
 Automated invoice follow-up workflow built with **n8n**, **Gmail API**, and **Google Sheets**.
@@ -42,7 +41,7 @@ Result:
 
 ## 🏗 Workflow Architecture
 
-text
+```text
 Schedule Trigger (Daily)
         ↓
 Fetch Unpaid Invoices (Google Sheets)
@@ -60,12 +59,13 @@ Send Reminder Email (Gmail)
 Update Reminder Stage (Google Sheets)
         ↓
 Flag Manual Follow-up (Google Sheets)
+```
 
 ---
 
 ## 📷 Workflow Screenshots
 
-text
+```text
 screenshots/
 ├── workflow-overview.png
 ├── reminder-email-day3.png
@@ -101,7 +101,7 @@ screenshots/
 
 ## 📦 Repository Structure
 
-text
+```text
 .
 ├── workflow/
 │     invoice-reminder-automation.json
@@ -116,6 +116,7 @@ text
 ├── .env.example
 ├── .gitignore
 └── README.md
+```
 
 ---
 
@@ -142,17 +143,21 @@ Set `Status` to `UNPAID` for invoices to be picked up by the workflow.
 ## 🚀 Installation
 
 Clone repository:
-bash
+
+```bash
 git clone https://github.com/your-username/n8n-invoice-reminder-automation.git
 cd n8n-invoice-reminder-automation
 ```
 
 Create env:
-bash
+
+```bash
 cp .env.example .env
+```
 
 Fill credentials:
-env
+
+```env
 GMAILOAUTH2_ID=
 GMAILOAUTH2_NAME=
 GOOGLESHEETSOAUTH2API_ID=
@@ -161,6 +166,7 @@ DOCUMENTID=
 SHEETNAME=
 N8N_INSTANCE_ID=
 WEBHOOK_ID_1=
+```
 
 Import workflow:
 1. Open n8n
@@ -175,7 +181,8 @@ Import workflow:
 ## 📩 Sample Reminder Emails
 
 **Day 3 — Friendly Reminder**
-text
+
+```text
 Dear [Client Name],
 
 This is a friendly reminder that Invoice INV-001 amounting to ₹15,000
@@ -185,9 +192,11 @@ We kindly request you to process the payment at your earliest convenience.
 
 Thank you for your business.
 Regards, Finance Team
+```
 
 **Day 7 — Urgent Follow-up**
-text
+
+```text
 Dear [Client Name],
 
 Our records indicate that Invoice INV-001 for ₹15,000 remains outstanding
@@ -196,10 +205,11 @@ beyond the due date.
 Please arrange payment as soon as possible to avoid delays in future services.
 
 Regards, Finance Team
-
+```
 
 **Day 14 — Final Notice**
-text
+
+```text
 Dear [Client Name],
 
 This is a final reminder regarding overdue Invoice INV-001 amounting to ₹15,000.
@@ -208,6 +218,12 @@ Further follow-up may be required if payment is not received.
 
 Regards, Finance Team
 ```
+
+---
+
+## ⚠️ Known Limitation
+
+The Switch node routes DAY3, DAY7, and DAY14 as separate paths, but all three merge into the same `Set Reminder Content` node which re-evaluates the stage using ternary logic. Both are doing the same routing job. This works correctly but is redundant by design — built this way for workflow visibility in n8n canvas.
 
 ---
 
